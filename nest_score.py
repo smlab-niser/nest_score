@@ -36,16 +36,19 @@ def calculate_scores(df: pd.DataFrame) -> pd.DataFrame:
 def calculate_smas(df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
     """Calculate Subject-wise Minimum Admissible Score."""
     smas = {}
-    print("\n=== SMAS SCORES ACROSS CATEGORIES ===")
     
     for subject in SUBJECT_COLS:
         top_100_avg = df[subject].nlargest(100).mean()
         smas[subject] = {cat: mult * top_100_avg for cat, mult in SMAS_MULTIPLIERS.items()}
-        
-        # Print SMAS scores for this subject
-        print(f"{subject}:")
-        for category, score in smas[subject].items():
-            print(f"  {category}: {score:.2f}")
+    
+    # Print SMAS scores as a table
+    print("\n=== SMAS SCORES ACROSS CATEGORIES ===")
+    print(f"{'Subject':<12} {'GEN':<8} {'OBC':<8} {'SC':<8} {'ST':<8}")
+    print("-" * 48)
+    
+    for subject in SUBJECT_COLS:
+        subject_name = subject.replace(' Marks', '')
+        print(f"{subject_name:<12} {smas[subject]['GEN']:<8.2f} {smas[subject]['OBC']:<8.2f} {smas[subject]['SC']:<8.2f} {smas[subject]['ST']:<8.2f}")
     
     return smas
 
@@ -152,17 +155,8 @@ def process_exam_results(input_file: str = 'provisional.csv', output_file: str =
     df['Percentile'] = df['Percentile'].round(4)
     df.to_csv(output_file, index=False)
     
-    # Print summary
-    print("\n=== FINAL SUMMARY ===")
-    print(f"Total candidates processed: {len(df)}")
-    print(f"General ranks assigned: {df['Gen-rank'].notna().sum()}")
-    print(f"Category ranks assigned: {df['Cat-rank'].notna().sum()}")
-    print(f"EWS ranks assigned: {df['EWS-rank'].notna().sum()}")
-    print(f"PWD ranks assigned: {df['PWD-rank'].notna().sum()}")
-    print(f"JK ranks assigned: {df['JK-rank'].notna().sum()}")
-    
     # Print qualified candidates by category
-    print("\n=== QUALIFIED CANDIDATES BY CATEGORY ===")
+
     qualified_mask = df['Gen-rank'].notna()
     qualified_df = df[qualified_mask]
     
@@ -171,6 +165,9 @@ def process_exam_results(input_file: str = 'provisional.csv', output_file: str =
     st_qualified = (qualified_df['Category'] == 'ST').sum()
     gen_qualified = ((qualified_df['Category'] == 'GEN') | 
                     (~qualified_df['Category'].isin(['OBC', 'SC', 'ST']))).sum()
+    
+    # Print summary of qualified candidates
+
     print("\n=== FINAL SUMMARY ===")
     print(f"Total candidates : {len(df)}")
     print(f"Total Merit ranks : {df['Gen-rank'].notna().sum()}")
@@ -182,7 +179,6 @@ def process_exam_results(input_file: str = 'provisional.csv', output_file: str =
     print(f"SC  : {sc_qualified}")
     print(f"ST  : {st_qualified}")
     print(f"GEN : {gen_qualified}")
-    print(f"Total qualified candidates: {qualified_df.shape[0]}")
     
     return df
 
