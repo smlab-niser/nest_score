@@ -7,19 +7,58 @@ SUBJECT_COLS = ['Bio Marks', 'Chem Marks', 'Math Marks', 'Phy Marks']
 SMAS_MULTIPLIERS = {'GEN': 0.20, 'OBC': 0.18, 'SC': 0.10, 'ST': 0.10}
 PERCENTILE_CUTOFFS = {'OBC': 90, 'SC': 75, 'ST': 75}
 
+# Subject scaling configuration - adjust these as needed
+SUBJECT_SCALING = {
+    'Bio Marks': {'max_actual': 60, 'max_standard': 60},    
+    'Chem Marks': {'max_actual': 60, 'max_standard': 60},   
+    'Math Marks': {'max_actual': 60, 'max_standard': 60},   
+    'Phy Marks': {'max_actual': 60, 'max_standard': 60}     
+}
+
 
 def load_and_clean_data(file_path: str) -> pd.DataFrame:
     """Load CSV and clean the data."""
     df = pd.read_csv(file_path)
     
     # Fill missing values
-    df[SUBJECT_COLS] = df[SUBJECT_COLS].fillna(0).clip(lower=0)
+    df[SUBJECT_COLS] = df[SUBJECT_COLS].fillna(0)
     df['PWD-Status'] = df['PWD-Status'].fillna('No').str.strip().str.lower()
     df['JK-Status'] = df['JK-Status'].fillna('No').str.strip().str.lower()
     df['Category'] = df['Category'].fillna('GEN').str.upper()
     
     return df
 
+def apply_subject_scaling(df: pd.DataFrame) -> pd.DataFrame:
+    """Apply scaling to subject scores to normalize them to a standard maximum."""
+    
+    print("\n=== SUBJECT SCALING APPLIED ===")
+    print(f"{'Subject':<12} {'Original Max':<12} {'Scaled Max':<11} {'Scaling Factor':<15}")
+    print("-" * 55)
+    
+    for subject in SUBJECT_COLS:
+        max_actual = SUBJECT_SCALING[subject]['max_actual']
+        max_standard = SUBJECT_SCALING[subject]['max_standard']
+        scaling_factor = max_standard / max_actual
+        
+        # Create scaled column name for reference
+        scaled_col = f"{subject}_Scaled"
+        
+        # Apply scaling only to positive scores
+        # Negative scores remain unchanged (as per requirement)
+        df[scaled_col] = df[subject].apply(
+            lambda x: x * scaling_factor if x > 0 else x
+        )
+        
+        # Replace original column with scaled values
+        df[subject] = df[scaled_col]
+        
+        # Clean up the temporary scaled column
+        df.drop(columns=[scaled_col], inplace=True)
+        
+        subject_name = subject.replace(' Marks', '')
+        print(f"{subject_name:<12} {max_actual:<12} {max_standard:<11} {scaling_factor:<15.4f}")
+    
+    return df
 
 def calculate_scores(df: pd.DataFrame) -> pd.DataFrame:
     """Calculate total marks (best 3 of 4) and max subject mark."""
@@ -142,6 +181,11 @@ def process_exam_results(input_file: str = 'provisional.csv', output_file: str =
     """Main function to process exam results."""
     # Load and process data
     df = load_and_clean_data(input_file)
+
+    # Apply subject scaling BEFORE calculating scores
+    # df = apply_subject_scaling(df)
+
+    # Calculate total marks and percentiles
     df = calculate_scores(df)
     
     # Calculate SMAS and qualification
